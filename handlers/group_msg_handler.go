@@ -101,15 +101,30 @@ func (g *GroupMessageHandler) ReplyText() error {
 		return nil
 	}
 
-	// 2.获取请求的文本，如果为空字符串不处理
-	requestText := g.getRequestText()
-	if requestText == "" {
+	// 2.获取请求的上下文，如果为空字符串不处理
+	requestTextHistory := g.getRequestTextHistory()
+	if len(requestTextHistory) == 0 {
 		log.Println("group message is empty")
 		return nil
 	}
 
 	// 3.请求GPT获取回复
-	reply, err = gpt.Completions(requestText)
+	msgReq := make([]gpt.ChatGptMsgObj, 0, len(requestTextHistory)*2)
+	for _, dialog := range requestTextHistory {
+		if len(dialog.UserMsg) > 0 {
+			msgReq = append(msgReq, gpt.ChatGptMsgObj{
+				Role:    "user",
+				Content: dialog.UserMsg,
+			})
+		}
+		if len(dialog.BotReply) > 0 {
+			msgReq = append(msgReq, gpt.ChatGptMsgObj{
+				Role:    "assistant",
+				Content: dialog.BotReply,
+			})
+		}
+	}
+	reply, err = gpt.Completions(msgReq)
 	if err != nil {
 		text := err.Error()
 		if strings.Contains(err.Error(), "context deadline exceeded") {
@@ -123,7 +138,7 @@ func (g *GroupMessageHandler) ReplyText() error {
 	}
 
 	// 4.设置上下文，并响应信息给用户
-	g.service.SetUserSessionContext(requestText, reply)
+	g.service.SetUserSessionContext(requestTextHistory[len(requestTextHistory)-1].UserMsg, reply)
 	_, err = g.msg.ReplyText(g.buildReplyText(reply))
 	if err != nil {
 		return fmt.Errorf("reply group error: %v ", err)
@@ -133,8 +148,10 @@ func (g *GroupMessageHandler) ReplyText() error {
 	return err
 }
 
-// getRequestText 获取请求接口的文本，要做一些清洗
-func (g *GroupMessageHandler) getRequestText() string {
+// getRequestTextHistory 获取请求接口的文本，要做一些清洗
+func (g *GroupMessageHandler) getRequestTextHistory() (ret []service.UserDialogHistoryPair) {
+	ret = make([]service.UserDialogHistoryPair, 0)
+
 	// 1.去除空格以及换行
 	requestText := strings.TrimSpace(g.msg.Content)
 	requestText = strings.Trim(g.msg.Content, "\n")
@@ -143,19 +160,10 @@ func (g *GroupMessageHandler) getRequestText() string {
 	replaceText := "@" + g.self.NickName
 	requestText = strings.TrimSpace(strings.ReplaceAll(g.msg.Content, replaceText, ""))
 	if requestText == "" {
-		return ""
+		return
 	}
 
-	// 3.获取上下文拼接在一起,如果字符长度超出4000截取为4000(GPT按字符长度算),达芬奇3最大为4068,也许后续为了适应要动态进行判断
-	sessionText := g.service.GetUserSessionContext()
-	if sessionText != "" {
-		requestText = sessionText + "\n" + requestText
-	}
-	if len(requestText) >= 4000 {
-		requestText = requestText[:4000]
-	}
-
-	// 4.检查用户发送文本是否包含结束标点符号
+	// 3.检查用户发送文本是否包含结束标点符号
 	punctuation := ",.;!?，。！？、…"
 	runeRequestText := []rune(requestText)
 	lastChar := string(runeRequestText[len(runeRequestText)-1:])
@@ -163,8 +171,15 @@ func (g *GroupMessageHandler) getRequestText() string {
 		requestText = requestText + "？" // 判断最后字符是否加了标点,没有的话加上句号,避免openai自动补齐引起混乱
 	}
 
+	// 4.获取上下文拼接在一起,如果字符长度超出4000截取为4000(GPT按字符长度算),达芬奇3最大为4068,也许后续为了适应要动态进行判断
+	dialogs := g.service.GetUserSessionContext()
+	ret = append(dialogs, service.UserDialogHistoryPair{
+		UserMsg:  requestText,
+		BotReply: "",
+	})
+
 	// 5.返回请求文本
-	return requestText
+	return
 }
 
 // buildReply 构建回复文本

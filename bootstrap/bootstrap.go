@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"fmt"
 	"github.com/eatmoreapple/openwechat"
+	"github.com/qingconglaixueit/wechatbot/config"
 	"github.com/qingconglaixueit/wechatbot/handlers"
 	"github.com/qingconglaixueit/wechatbot/pkg/logger"
 	"os"
@@ -20,8 +21,13 @@ func Run() {
 	}
 	bot.MessageHandler = handler
 
-	// 注册登陆二维码回调
-	bot.UUIDCallback = openwechat.PrintlnQrcodeUrl
+	cfg := config.LoadConfig()
+	if cfg.QRCallback == "console" {
+		bot.UUIDCallback = handlers.QrCodeCallBack
+	} else {
+		// 注册登陆二维码回调
+		bot.UUIDCallback = openwechat.PrintlnQrcodeUrl
+	}
 
 	// 创建热存储容器对象
 	reloadStorage := openwechat.NewJsonFileHotReloadStorage("storage.json")

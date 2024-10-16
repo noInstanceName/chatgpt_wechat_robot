@@ -13,22 +13,28 @@ import (
 
 // Configuration 项目配置
 type Configuration struct {
-	// gpt apikey
-	ApiKey string `json:"api_key"`
+	// 扫描二维码方式, url or console
+	QRCallback string `json:"qr_callback" yaml:"qr-callback"`
 	// 自动通过好友
-	AutoPass bool `json:"auto_pass"`
+	AutoPass bool `json:"auto_pass" yaml:"auto-pass"`
+	// gpt url
+	GptUrl string `json:"gpt_url" yaml:"gpt-url"`
+	// gpt apikey
+	ApiKey string `json:"api_key" yaml:"api-key"`
 	// 会话超时时间
-	SessionTimeout time.Duration `json:"session_timeout"`
+	SessionTimeout time.Duration `json:"session_timeout" yaml:"session-timeout"`
 	// GPT请求最大字符数
-	MaxTokens uint `json:"max_tokens"`
+	MaxTokens uint `json:"max_tokens" yaml:"max-tokens"`
+	// 记录的最大历史轮数
+	MaxHistoryRound int `json:"max_history_round" yaml:"max-history-round"`
 	// GPT模型
-	Model string `json:"model"`
+	Model string `json:"model" yaml:"model"`
 	// 热度
-	Temperature float64 `json:"temperature"`
+	Temperature float64 `json:"temperature" yaml:"temperature"`
 	// 回复前缀
-	ReplyPrefix string `json:"reply_prefix"`
+	ReplyPrefix string `json:"reply_prefix" yaml:"reply-prefix"`
 	// 清空会话口令
-	SessionClearToken string `json:"session_clear_token"`
+	SessionClearToken string `json:"session_clear_token" yaml:"session-clear-token"`
 }
 
 var config *Configuration
@@ -42,7 +48,7 @@ func LoadConfig() *Configuration {
 			AutoPass:          false,
 			SessionTimeout:    60,
 			MaxTokens:         512,
-			Model:             "text-davinci-003",
+			Model:             "o1-mini",
 			Temperature:       0.9,
 			SessionClearToken: "下个问题",
 		}
